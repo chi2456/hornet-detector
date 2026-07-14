@@ -28,7 +28,10 @@ class CameraManager:
         return frame
 
     def save_image(self, frame, filename):
-        cv2.imwrite(filename, frame)
+        # 画質を50に落として保存し、ファイルサイズを劇的に軽くする処理
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 50]
+        cv2.imwrite(filename, frame, encode_param)
+        
         # 古い画像の削除（ローテーション）
         files = sorted(glob.glob(os.path.join(SAVE_DIR, "*.jpg")))
         if len(files) > MAX_IMAGES:
