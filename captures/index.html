@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ハチ監視システム</title>
+    <style>
+        /* 見やすさを重視したダークモード設計 */
+        body { margin: 0; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; background: #111; color: #fff; }
+        
+        /* 上部：画像表示エリア */
+        #viewer { flex: 4; display: flex; justify-content: center; align-items: center; background: #000; padding: 10px; border-bottom: 2px solid #333; }
+        #viewer img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        
+        /* 下部：リスト・検索エリア */
+        #ui-area { flex: 6; display: flex; flex-direction: column; background: #222; }
+        #search-box { padding: 10px; background: #333; }
+        #search-box input { width: 100%; padding: 12px; font-size: 16px; box-sizing: border-box; border-radius: 5px; border: none; outline: none; }
+        
+        /* リスト部分の装飾 */
+        #file-list { flex: 1; overflow-y: auto; padding: 0; margin: 0; list-style: none; }
+        .file-item { border-bottom: 1px solid #444; }
+        .file-link { display: block; padding: 15px; color: #ccc; text-decoration: none; font-size: 15px; }
+        .file-link:hover { background: #333; }
+        
+        /* ハチ検知（_confを含む）ファイル名を赤くする */
+        .alert { color: #ff4444; font-weight: bold; }
+        .alert::before { content: "⚠️ "; }
+        
+        /* 選択中のファイルの背景色 */
+        .selected { background: #444; color: #fff; }
+        
+        /* PCなど横長画面で見るときの自動レイアウト変更 */
+        @media (min-width: 768px) {
+            body { flex-direction: row; }
+            #viewer { flex: 7; border-bottom: none; border-right: 2px solid #333; }
+            #ui-area { flex: 3; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="viewer">
+        <img id="main-img" src="" alt="画像を選択してください">
+    </div>
+    
+    <div id="ui-area">
+        <div id="search-box">
+            <input type="text" id="search-input" placeholder="🔍 時間で検索 (例: 14-30)..." onkeyup="filterFiles()">
+        </div>
+        <ul id="file-list">
+            <!-- ここにファイル一覧が自動で入ります -->
+        </ul>
+    </div>
+
+    <script>
+        let allFiles = [];
+
+        // サーバーから画像の一覧データを取得する処理
+        async function loadFiles() {
+            try {
+                const response = await fetch('/api/files');
+                allFiles = await response.json();
+                renderList(allFiles);
+                // 最初の1回だけ、一番最新の画像を表示する
+                if (allFiles.length > 0 && document.getElementById('main-img').src.endsWith("index.html")) {
+                    showImage(allFiles[0]);
+                }
+            } catch (error) {
+                console.error("ファイルの読み込みに失敗しました", error);
+            }
+        }
+
+        // 取得したファイル名でリストを作る処理
+        function renderList(files) {
+            const list = document.getElementById('file-list');
+            list.innerHTML = '';
+            
+            files.forEach(file => {
+                const li = document.createElement('li');
+                li.className = 'file-item';
+                
+                const a = document.createElement('a');
+                a.href = '#';
+                a.textContent = file;
+                a.className = 'file-link';
+                
+                // main.pyのルールに従い、「_conf」が含まれていたら赤文字クラス(alert)を付与
+                if (file.includes('_conf')) {
+                    a.classList.add('alert');
+                }
+                
+                // リンクをタップしたときの処理（画面を切り替えずに画像だけ変える）
+                a.onclick = (e) => {
+                    e.preventDefault(); // ページジャンプを防ぐ
+                    showImage(file);
+                    // 色のハイライトを更新
+                    document.querySelectorAll('.file-link').forEach(el => el.classList.remove('selected'));
+                    a.classList.add('selected');
+                };
+                
+                li.appendChild(a);
+                list.appendChild(li);
+            });
+        }
+
+        // 画像を表示する処理
+        function showImage(filename) {
+            document.getElementById('main-img').src = '/' + filename;
+        }
+
+        // 検索枠に文字を入れたときの絞り込み処理
+        function filterFiles() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const filtered = allFiles.filter(file => file.toLowerCase().includes(query));
+            renderList(filtered);
+        }
+
+        // ページを開いたときに実行
+        loadFiles();
+        
+        // 10秒ごとに新しいファイルがないか自動更新（リロード不要）
+        setInterval(loadFiles, 10000);
+    </script>
+</body>
+</html>
